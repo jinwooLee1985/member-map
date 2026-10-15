@@ -57,6 +57,7 @@
   .gate button{padding:10px;border:0;border-radius:8px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer}
   .gate .err{color:var(--accent);font-size:12.5px;min-height:1em}
   li.msg{display:block}
+  .relogin{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:12.5px;color:var(--sub);cursor:pointer}
   .msg{padding:24px;text-align:center;color:var(--sub);font-size:14px}
   @media (max-width:760px){
     .app{grid-template-columns:1fr;grid-template-rows:auto 52vh 1fr}
@@ -87,6 +88,7 @@
       <span class="stat">승인대기 <b id="sPend">-</b></span>
     </div>
     <span class="upd" id="upd"></span>
+    <button type="button" id="relogin" class="relogin">다른 비밀번호로 열기</button>
     <div class="dl" id="dl">
       <span class="admin-tag">관리자</span>
       <select id="dlScope"><option value="all">전체 회원</option><option value="approved">승인 회원만</option></select>
@@ -273,6 +275,11 @@ function fetchMembers(pin){
       }
     });
 }
+document.getElementById('relogin').onclick = () => {
+  storePin(''); currentPin = '';
+  document.getElementById('pin').value = ''; document.getElementById('gateErr').textContent = '';
+  document.getElementById('gate').classList.add('on'); document.getElementById('pin').focus();
+};
 document.getElementById('gateForm').onsubmit = e => {
   e.preventDefault();
   document.getElementById('gateErr').textContent = '확인 중…';
