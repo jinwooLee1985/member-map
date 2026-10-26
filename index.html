@@ -49,6 +49,33 @@
   .pop .addr{font-size:12px;color:var(--sub);margin-bottom:6px}
   .pop .p{font-size:12.5px;padding:3px 0;border-top:1px solid var(--line)}
   .badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;margin-left:4px}
+  .prop-btn{padding:6px 12px;border:1px solid var(--full);border-radius:8px;background:var(--full);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(27,36,48,.45);display:none;align-items:flex-start;justify-content:center;z-index:2100;overflow:auto;padding:5vh 16px}
+  .modal.on{display:flex}
+  .sheet{background:#fff;border-radius:14px;width:min(560px,100%);padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+  .sheet.wide{width:min(900px,100%)}
+  .sheet h2{margin:0 0 4px;font-size:17px}
+  .sheet .lead{margin:0 0 14px;font-size:13px;color:var(--sub)}
+  .sheet label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+  .sheet label small{font-weight:400;color:var(--sub);margin-left:4px}
+  .sheet textarea{width:100%;min-height:110px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;resize:vertical}
+  .sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sheet .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  .sheet .actions button{padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:#fff}
+  .sheet .actions .primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .sheet .actions button:disabled{opacity:.5;cursor:wait}
+  .sheet .err{color:var(--accent);font-size:12.5px;min-height:1em;margin-top:8px}
+  .sheet .done{padding:18px;border-radius:10px;background:#eef6f4;font-size:14px;line-height:1.7}
+  .plist{display:grid;gap:10px;max-height:65vh;overflow:auto;margin-top:8px}
+  .pitem{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .pitem .top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .pitem .t{font-weight:700;font-size:14.5px}
+  .pitem .meta{font-size:12px;color:var(--sub)}
+  .pitem .st{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-left:auto}
+  .pitem details{margin-top:6px;font-size:13.5px}
+  .pitem details p{white-space:pre-wrap;margin:6px 0 0;line-height:1.6}
+  .pitem details b{font-size:12px;color:var(--sub)}
+  @media (max-width:760px){ .sheet .row{grid-template-columns:1fr} }
   .gate{position:fixed;inset:0;background:rgba(246,248,250,.97);display:none;align-items:center;justify-content:center;z-index:2000}
   .gate.on{display:flex}
   .gate form{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;width:min(320px,90vw);display:grid;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
@@ -78,6 +105,35 @@
     <button type="submit">열기</button>
   </form>
 </div>
+<div class="modal" id="propModal">
+  <div class="sheet">
+    <h2>협회 안건 제안</h2>
+    <p class="lead">협회 회의 안건으로 제안할 내용을 적어 주세요. 제안일시는 자동으로 기록됩니다.</p>
+    <form id="propForm">
+      <div class="row">
+        <div><label>제안자명</label><input id="pName" maxlength="30" required></div>
+        <div><label>아파트단지명</label><input id="pApt" maxlength="60" required></div>
+      </div>
+      <label>제안제목</label><input id="pTitle" maxlength="100" required>
+      <label>제안내용 <small>무엇을 논의·결정하자는 것인지</small></label><textarea id="pContent" maxlength="3000" required></textarea>
+      <label>제안사유 <small>왜 필요한지</small></label><textarea id="pReason" maxlength="2000" required></textarea>
+      <div class="err" id="pErr"></div>
+      <div class="actions">
+        <button type="button" data-close>취소</button>
+        <button type="submit" class="primary" id="pSubmit">제안 보내기</button>
+      </div>
+    </form>
+    <div class="done" id="pDone" hidden></div>
+  </div>
+</div>
+<div class="modal" id="listModal">
+  <div class="sheet wide">
+    <h2>안건 제안 목록</h2>
+    <p class="lead" id="listLead">불러오는 중…</p>
+    <div class="plist" id="plist"></div>
+    <div class="actions"><button type="button" data-close>닫기</button></div>
+  </div>
+</div>
 <div class="app">
   <header>
     <h1 id="org">회원 지도</h1>
@@ -88,11 +144,13 @@
       <span class="stat">승인대기 <b id="sPend">-</b></span>
     </div>
     <span class="upd" id="upd"></span>
+    <button type="button" id="propBtn" class="prop-btn">안건 제안</button>
     <button type="button" id="relogin" class="relogin">다른 비밀번호로 열기</button>
     <div class="dl" id="dl">
       <span class="admin-tag">관리자</span>
       <select id="dlScope"><option value="all">전체 회원</option><option value="approved">승인 회원만</option></select>
       <button id="dlBtn" type="button">명부 다운로드</button>
+      <button id="listBtn" type="button">제안 목록</button>
     </div>
   </header>
   <aside>
@@ -231,6 +289,51 @@ document.getElementById('dlBtn').onclick = async () => {
     download(r.filename, toCsv(r.head, r.rows));
   } catch (e) { alert('다운로드 실패: ' + e.message); }
   b.disabled = false; b.textContent = '명부 다운로드';
+};
+
+/* ── 안건 제안 ── */
+const $ = id => document.getElementById(id);
+function openModal(id){ $(id).classList.add('on'); }
+function closeModal(el){ el.closest('.modal').classList.remove('on'); }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); }));
+
+$('propBtn').onclick = () => {
+  $('propForm').hidden = false; $('pDone').hidden = true; $('pErr').textContent = '';
+  openModal('propModal'); $('pName').focus();
+};
+$('propForm').onsubmit = async e => {
+  e.preventDefault();
+  const p = { name: $('pName').value, apt: $('pApt').value, title: $('pTitle').value,
+              content: $('pContent').value, reason: $('pReason').value };
+  if (Object.values(p).some(v => !v.trim())) { $('pErr').textContent = '모든 항목을 입력해 주세요.'; return; }
+  $('pSubmit').disabled = true; $('pErr').textContent = '보내는 중…';
+  try {
+    const r = await api({ action: 'propose', pin: currentPin, proposal: p });
+    $('propForm').reset(); $('propForm').hidden = true; $('pDone').hidden = false;
+    $('pDone').innerHTML = '<b>제안이 접수되었습니다.</b><br>접수번호 ' + esc(r.no) + ' · ' + esc(r.at) +
+      '<br>협회에서 검토 후 안내드리겠습니다.<div class="actions"><button type="button" class="primary" data-close2>닫기</button></div>';
+    $('pDone').querySelector('[data-close2]').onclick = () => $('propModal').classList.remove('on');
+  } catch (err) {
+    $('pErr').textContent = String(err.message).indexOf('PIN') >= 0 ? '비밀번호가 바뀌었습니다. 다시 로그인해 주세요.' : '제출 실패: ' + err.message;
+  }
+  $('pSubmit').disabled = false;
+};
+
+$('listBtn').onclick = async () => {
+  openModal('listModal'); $('listLead').textContent = '불러오는 중…'; $('plist').innerHTML = '';
+  try {
+    const list = await api({ action: 'proposals', pin: currentPin });
+    $('listLead').textContent = '총 ' + list.length + '건 · 최신순 (처리상태는 스프레드시트 "안건제안" 탭에서 변경)';
+    $('plist').innerHTML = list.length ? list.map(x =>
+      '<div class="pitem"><div class="top"><span class="t">' + esc(x.title) + '</span>' +
+      '<span class="meta">' + esc(x.no) + ' · ' + esc(x.at) + ' · ' + esc(x.name) + ' (' + esc(x.apt) + ')</span>' +
+      '<span class="st">' + esc(x.status) + '</span></div>' +
+      '<details><summary>내용 보기</summary><b>제안내용</b><p>' + esc(x.content) + '</p>' +
+      '<b>제안사유</b><p>' + esc(x.reason) + '</p>' +
+      (x.memo ? '<b>처리메모</b><p>' + esc(x.memo) + '</p>' : '') + '</details></div>').join('')
+      : '<p class="lead">아직 들어온 제안이 없습니다.</p>';
+  } catch (err) { $('listLead').textContent = '불러오기 실패: ' + err.message; }
 };
 
 function load(data){
