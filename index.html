@@ -562,7 +562,7 @@ async function uploadDoc(kind, input, btn){
     $('docMsg').textContent = '파일을 보관했습니다. ' + (r.updates.length ? '확인할 항목 ' + r.updates.length + '개' : 'AI가 새로 채울 항목을 찾지 못했습니다.');
     input.value = '';
     if (r.updates.length) openReview(r.updates, r.source, (kind === 'bylaw' ? '관리규약' : '임명장') + '에서 읽은 내용 확인');
-  } catch (err) { $('docMsg').textContent = '실패: ' + err.message; }
+  } catch (err) { $('docMsg').textContent = '실패: ' + (/AI 오류 (429|503)/.test(err.message) ? 'AI 서버가 혼잡합니다. 1~2분 뒤 다시 눌러 주세요. 파일은 이미 보관됐을 수 있습니다.' : err.message); }
   btn.disabled = false;
 }
 $('bBylaw').onclick = () => uploadDoc('bylaw', $('fBylaw'), $('bBylaw'));
@@ -601,7 +601,17 @@ $('chatGo').onclick = async () => {
   try {
     for (let i = 0; i < parts.length; i++) {
       $('chatInfo').textContent = 'AI가 분석하는 중… ' + (i + 1) + ' / ' + parts.length + ' (조각당 최대 1분)';
-      const r = await api({ action: 'aiChat', auth: AUTH, text: parts[i] });
+      let r, tries = 0;
+      while (true) {                                 // AI 혼잡(503)·한도(429)면 기다렸다가 같은 조각 다시 시도
+        try { r = await api({ action: 'aiChat', auth: AUTH, text: parts[i] }); break; }
+        catch (e) {
+          if (!/AI 오류 (429|500|503)/.test(e.message) || ++tries > 3) throw e;
+          for (let sec = 30 * tries; sec > 0; sec--) {
+            $('chatInfo').textContent = 'AI 서버가 혼잡합니다. ' + sec + '초 뒤 ' + (i + 1) + ' / ' + parts.length + ' 조각을 다시 시도합니다…';
+            await new Promise(ok => setTimeout(ok, 1000));
+          }
+        }
+      }
       r.updates.forEach(u => { merged[u.key + '|' + u.field] = u; });
     }
     const ups = Object.values(merged);
