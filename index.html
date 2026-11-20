@@ -591,38 +591,55 @@ $('chatFile').onchange = async e => {
   $('chatText').value = await f.text();
   $('chatInfo').textContent = f.name + ' 불러옴 · ' + $('chatText').value.length.toLocaleString() + '자';
 };
-$('chatGo').onclick = async () => {
-  const raw = $('chatText').value.trim();
-  if (raw.length < 10) { $('chatErr').textContent = '대화 내용을 붙여넣어 주세요.'; return; }
-  const parts = chunkText(cleanChat(raw), 45000);
-  if (parts.length > 15) { $('chatErr').textContent = '대화가 너무 깁니다. 최근 몇 달 분량만 넣어 주세요.'; return; }
+/* 분석 진행 상태: 실패해도 찾은 결과와 위치를 기억해서 이어서 하기 */
+let CHAT = null;   // {parts, next, merged}
+function chatButtons(html){ $('chatInfo').innerHTML = html; }
+function showChatResult(){
+  const ups = Object.values(CHAT.merged);
+  chatButtons('');
+  if (!ups.length) { $('chatErr').textContent = '등록된 회원 단지의 정보로 반영할 내용을 찾지 못했습니다.'; return; }
+  $('chatModal').classList.remove('on');
+  openReview(ups, '단톡방 추출(AI)', '단톡방에서 찾은 내용 확인 (' + ups.length + '건)');
+}
+async function runChat(){
   $('chatGo').disabled = true; $('chatErr').textContent = '';
-  const merged = {};                                // 뒤(최근) 조각의 값이 앞 조각 값을 덮어씀
+  const P = CHAT.parts;
   try {
-    for (let i = 0; i < parts.length; i++) {
-      $('chatInfo').textContent = 'AI가 분석하는 중… ' + (i + 1) + ' / ' + parts.length + ' (조각당 최대 1분)';
+    for (let i = CHAT.next; i < P.length; i++) {
+      chatButtons('AI가 분석하는 중… ' + (i + 1) + ' / ' + P.length + ' (조각당 최대 1분)');
       let r, tries = 0;
-      while (true) {                                 // AI 혼잡(503)·한도(429)면 기다렸다가 같은 조각 다시 시도
-        try { r = await api({ action: 'aiChat', auth: AUTH, text: parts[i] }); break; }
+      while (true) {                                 // 혼잡(429·500·503)이면 기다렸다가 같은 조각 다시
+        try { r = await api({ action: 'aiChat', auth: AUTH, text: P[i] }); break; }
         catch (e) {
-          if (!/AI 오류 (429|500|503)/.test(e.message) || ++tries > 3) throw e;
-          for (let sec = 30 * tries; sec > 0; sec--) {
-            $('chatInfo').textContent = 'AI 서버가 혼잡합니다. ' + sec + '초 뒤 ' + (i + 1) + ' / ' + parts.length + ' 조각을 다시 시도합니다…';
+          if (!/AI 오류 (429|500|503)/.test(e.message) || ++tries > 2) throw e;
+          for (let sec = 40 * tries; sec > 0; sec--) {
+            chatButtons('AI 서버가 혼잡합니다. ' + sec + '초 뒤 ' + (i + 1) + ' / ' + P.length + ' 조각을 다시 시도합니다…');
             await new Promise(ok => setTimeout(ok, 1000));
           }
         }
       }
-      r.updates.forEach(u => { merged[u.key + '|' + u.field] = u; });
+      r.updates.forEach(u => { CHAT.merged[u.key + '|' + u.field] = u; });
+      CHAT.next = i + 1;
     }
-    const ups = Object.values(merged);
-    $('chatInfo').textContent = '';
-    if (!ups.length) { $('chatErr').textContent = '등록된 회원 단지의 정보로 반영할 내용을 찾지 못했습니다.'; }
-    else { $('chatModal').classList.remove('on'); openReview(ups, '단톡방 추출(AI)', '단톡방에서 찾은 내용 확인 (' + ups.length + '건)'); $('chatText').value = ''; $('chatFile').value = ''; }
+    showChatResult(); $('chatText').value = ''; $('chatFile').value = '';
   } catch (err) {
-    $('chatErr').textContent = '실패: ' + err.message +
-      (Object.keys(merged).length ? ' (앞부분 분석 결과 ' + Object.keys(merged).length + '건은 저장되지 않았습니다. 다시 시도해 주세요.)' : '');
+    const n = Object.keys(CHAT.merged).length;
+    $('chatErr').textContent = '실패: ' + (/AI 오류 (429|500|503)/.test(err.message) ? 'AI 서버가 계속 혼잡합니다. 몇 분 뒤 이어서 하세요.' : err.message);
+    chatButtons('<div class="actions" style="justify-content:flex-start">' +
+      '<button type="button" class="primary" id="chatResume">' + (CHAT.next + 1) + ' / ' + P.length + ' 조각부터 이어서 분석</button>' +
+      (n ? '<button type="button" id="chatPartial">지금까지 찾은 ' + n + '건 먼저 확인</button>' : '') + '</div>');
+    $('chatResume').onclick = () => runChat();
+    if (n) $('chatPartial').onclick = () => showChatResult();
   }
   $('chatGo').disabled = false;
+}
+$('chatGo').onclick = () => {
+  const raw = $('chatText').value.trim();
+  if (raw.length < 10) { $('chatErr').textContent = '대화 내용을 붙여넣어 주세요.'; return; }
+  const parts = chunkText(cleanChat(raw), 45000);
+  if (parts.length > 15) { $('chatErr').textContent = '대화가 너무 깁니다. 최근 몇 달 분량만 넣어 주세요.'; return; }
+  CHAT = { parts: parts, next: 0, merged: {} };
+  runChat();
 };
 
 /* 확인 화면 */
