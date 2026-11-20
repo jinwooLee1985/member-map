@@ -1,0 +1,678 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>대전충남 공동주택협회 회원 지도</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+  :root{--ink:#1b2430;--sub:#5d6875;--line:#e3e7ec;--bg:#f6f8fa;--card:#fff;
+        --full:#1f3a5f;--assoc:#2a9d8f;--accent:#c8191e}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;font-family:Pretendard,-apple-system,"Malgun Gothic",sans-serif;color:var(--ink);background:var(--bg)}
+  .app{display:grid;grid-template-columns:340px 1fr;grid-template-rows:auto 1fr;height:100vh}
+  header{grid-column:1/-1;display:flex;flex-wrap:wrap;align-items:center;gap:10px 16px;padding:12px 18px;background:var(--card);border-bottom:1px solid var(--line)}
+  header h1{font-size:17px;margin:0;font-weight:700}
+  header .upd{margin-left:auto;font-size:12px;color:var(--sub)}
+  .dl{display:none;gap:6px;align-items:center}
+  .dl.on{display:flex}
+  .dl select,.dl button{padding:6px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:13px;background:#fff}
+  .dl button{background:var(--ink);color:#fff;border-color:var(--ink);cursor:pointer;font-weight:600}
+  .dl button:disabled{opacity:.5;cursor:wait}
+  .admin-tag{font-size:11px;padding:2px 7px;border-radius:999px;background:var(--accent);color:#fff}
+  .stats{display:flex;gap:8px}
+  .stat{padding:4px 10px;border-radius:999px;font-size:12.5px;background:var(--bg);border:1px solid var(--line)}
+  .stat b{font-variant-numeric:tabular-nums}
+  aside{display:flex;flex-direction:column;min-height:0;background:var(--card);border-right:1px solid var(--line)}
+  .filters{padding:12px;display:grid;gap:8px;border-bottom:1px solid var(--line)}
+  input,select{width:100%;padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;background:#fff}
+  .seg{display:flex;gap:6px}
+  .seg button{flex:1;padding:6px 0;border:1px solid var(--line);background:#fff;border-radius:8px;font:inherit;font-size:13px;cursor:pointer}
+  .seg button.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .count{font-size:12px;color:var(--sub);padding:8px 14px 4px}
+  ul{list-style:none;margin:0;padding:0 8px 12px;overflow:auto;flex:1}
+  li{padding:10px;border-radius:10px;cursor:pointer;display:grid;grid-template-columns:10px 1fr auto;gap:10px;align-items:center}
+  li:hover,li.active{background:var(--bg)}
+  .dot{width:10px;height:10px;border-radius:50%}
+  .nm{font-weight:600;font-size:14px}
+  .ap{font-size:12.5px;color:var(--sub);margin-top:2px}
+  .rg{font-size:11.5px;color:var(--sub);white-space:nowrap}
+  .nogeo{font-size:11px;color:var(--accent)}
+  .tag{font-size:10.5px;padding:0 5px;border-radius:4px;border:1px solid var(--line);color:var(--sub);margin-left:4px;font-weight:500}
+  .tag.warn{border-color:var(--accent);color:var(--accent)}
+  #map{min-height:0}
+  .legend{background:#fff;padding:8px 10px;border-radius:8px;box-shadow:0 1px 4px rgba(0,0,0,.15);font-size:12px;line-height:1.7}
+  .legend i{display:inline-block;width:10px;height:10px;border-radius:50%;margin-right:6px;vertical-align:-1px}
+  .pop h3{margin:0 0 4px;font-size:14px}
+  .pop .addr{font-size:12px;color:var(--sub);margin-bottom:6px}
+  .pop .p{font-size:12.5px;padding:3px 0;border-top:1px solid var(--line)}
+  .badge{display:inline-block;font-size:11px;padding:1px 6px;border-radius:4px;color:#fff;margin-left:4px}
+  .prop-btn{padding:6px 12px;border:1px solid var(--full);border-radius:8px;background:var(--full);color:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .modal{position:fixed;inset:0;background:rgba(27,36,48,.45);display:none;align-items:flex-start;justify-content:center;z-index:2100;overflow:auto;padding:5vh 16px}
+  .modal.on{display:flex}
+  .sheet{background:#fff;border-radius:14px;width:min(560px,100%);padding:22px;box-shadow:0 12px 40px rgba(0,0,0,.18)}
+  .sheet.wide{width:min(900px,100%)}
+  .sheet h2{margin:0 0 4px;font-size:17px}
+  .sheet .lead{margin:0 0 14px;font-size:13px;color:var(--sub)}
+  .sheet label{display:block;font-size:13px;font-weight:600;margin:12px 0 5px}
+  .sheet label small{font-weight:400;color:var(--sub);margin-left:4px}
+  .sheet textarea{width:100%;min-height:110px;padding:9px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;font-size:14px;resize:vertical}
+  .sheet .row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+  .sheet .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+  .sheet .actions button{padding:9px 16px;border-radius:8px;font:inherit;font-weight:600;cursor:pointer;border:1px solid var(--line);background:#fff}
+  .sheet .actions .primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .sheet .actions button:disabled{opacity:.5;cursor:wait}
+  .sheet .err{color:var(--accent);font-size:12.5px;min-height:1em;margin-top:8px}
+  .sheet .done{padding:18px;border-radius:10px;background:#eef6f4;font-size:14px;line-height:1.7}
+  .plist{display:grid;gap:10px;max-height:65vh;overflow:auto;margin-top:8px}
+  .pitem{border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .pitem .top{display:flex;gap:8px;align-items:baseline;flex-wrap:wrap}
+  .pitem .t{font-weight:700;font-size:14.5px}
+  .pitem .meta{font-size:12px;color:var(--sub)}
+  .pitem .st{font-size:11px;padding:1px 7px;border-radius:999px;background:var(--bg);border:1px solid var(--line);margin-left:auto}
+  .pitem details{margin-top:6px;font-size:13.5px}
+  .pitem details p{white-space:pre-wrap;margin:6px 0 0;line-height:1.6}
+  .pitem details b{font-size:12px;color:var(--sub)}
+  @media (max-width:760px){ .sheet .row{grid-template-columns:1fr} }
+  .gate{position:fixed;inset:0;background:rgba(246,248,250,.97);display:none;align-items:center;justify-content:center;z-index:2000}
+  .gate.on{display:flex}
+  .gate form{background:#fff;border:1px solid var(--line);border-radius:14px;padding:24px;width:min(320px,90vw);display:grid;gap:12px;box-shadow:0 8px 30px rgba(0,0,0,.08)}
+  .gate h2{margin:0;font-size:16px}
+  .gate p{margin:0;font-size:13px;color:var(--sub)}
+  .gate button{padding:10px;border:0;border-radius:8px;background:var(--ink);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  .gate .err{color:var(--accent);font-size:12.5px;min-height:1em}
+  li.msg{display:block}
+  .me{font-size:12.5px;color:var(--sub)}
+  .me b{color:var(--ink)}
+  .tool-btn{padding:6px 12px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:13px;font-weight:600;cursor:pointer}
+  .pop .open-c{margin-top:8px;width:100%;padding:7px;border:0;border-radius:8px;background:var(--full);color:#fff;font:inherit;font-weight:600;cursor:pointer}
+  .row-btn{font-size:11px;padding:2px 7px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;color:var(--sub)}
+  .chead{display:flex;gap:10px;align-items:baseline;flex-wrap:wrap}
+  .chead .sub{font-size:12.5px;color:var(--sub)}
+  .term{font-size:11.5px;padding:2px 8px;border-radius:999px;border:1px solid var(--line)}
+  .term.warn{border-color:#d98a00;color:#b36b00;background:#fff8ea}
+  .term.bad{border-color:var(--accent);color:var(--accent);background:#fdeeee}
+  .tabs{display:flex;gap:6px;margin:14px 0 10px;border-bottom:1px solid var(--line)}
+  .tabs button{padding:8px 12px;border:0;background:none;font:inherit;font-size:14px;cursor:pointer;color:var(--sub);border-bottom:2px solid transparent;margin-bottom:-1px}
+  .tabs button.on{color:var(--ink);font-weight:700;border-bottom-color:var(--ink)}
+  .cat{margin:14px 0 4px;font-size:12.5px;font-weight:700;color:var(--full)}
+  .frow{display:grid;grid-template-columns:170px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:14px}
+  .frow .fl{color:var(--sub);font-size:13px}
+  .frow .fv{white-space:pre-wrap;word-break:break-all}
+  .frow .fv.empty{color:#aab2bb}
+  .frow .fm{font-size:11.5px;color:#8a949e;margin-top:3px}
+  .frow textarea{min-height:38px}
+  .box{border:1px dashed var(--line);border-radius:10px;padding:14px;margin-bottom:12px}
+  .box h3{margin:0 0 4px;font-size:14.5px}
+  .box p{margin:0 0 8px;font-size:12.5px;color:var(--sub)}
+  .rv{width:100%;border-collapse:collapse;font-size:13px}
+  .rv th,.rv td{border-bottom:1px solid var(--line);padding:7px 6px;text-align:left;vertical-align:top}
+  .rv th{background:var(--bg);font-weight:600}
+  .rv input[type=text]{padding:5px 7px;font-size:13px}
+  .rv .cur{color:var(--sub)}
+  .rv .ev{color:#8a949e;font-size:12px}
+  .rvwrap{max-height:55vh;overflow:auto;border:1px solid var(--line);border-radius:10px}
+  .busy{font-size:13px;color:var(--sub)}
+  @media (max-width:760px){ .frow{grid-template-columns:1fr;gap:2px} }
+  .relogin{padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:#fff;font:inherit;font-size:12.5px;color:var(--sub);cursor:pointer}
+  .msg{padding:24px;text-align:center;color:var(--sub);font-size:14px}
+  @media (max-width:760px){
+    .app{grid-template-columns:1fr;grid-template-rows:auto 52vh 1fr}
+    header{flex-wrap:wrap;padding:10px 14px}
+    header .upd{margin-left:0;width:100%}
+    #map{grid-row:2}
+    aside{grid-row:3;border-right:0;border-top:1px solid var(--line)}
+  }
+</style>
+</head>
+<body>
+<div class="gate" id="gate">
+  <form id="gateForm">
+    <h2>회원 지도</h2>
+    <p>협회 회원용 페이지입니다. 비밀번호와 본인 확인 정보를 입력해 주세요.<br>성명·연락처는 회원 등록 때 적은 것과 같아야 합니다.</p>
+    <input id="pin" type="password" autocomplete="current-password" placeholder="비밀번호">
+    <input id="uName" autocomplete="name" placeholder="성명" maxlength="30">
+    <input id="uP4" inputmode="numeric" maxlength="4" placeholder="연락처 뒷 4자리">
+    <div class="err" id="gateErr"></div>
+    <button type="submit">열기</button>
+  </form>
+</div>
+<div class="modal" id="propModal">
+  <div class="sheet">
+    <h2>협회 안건 제안</h2>
+    <p class="lead">협회 회의 안건으로 제안할 내용을 적어 주세요. 제안일시는 자동으로 기록됩니다.</p>
+    <form id="propForm">
+      <div class="row">
+        <div><label>제안자명</label><input id="pName" maxlength="30" required readonly></div>
+        <div><label>제안자 단지</label><input id="pApt" maxlength="60" required list="aptList"></div>
+      </div>
+      <div class="row">
+        <div><label>구분</label><select id="pKind"><option>협회 회의 안건</option><option>지자체 건의</option></select></div>
+        <div><label>대상 단지 <small>특정 단지 건이면</small></label><input id="pTarget" maxlength="60" list="aptList" placeholder="비우면 제안자 단지"></div>
+      </div>
+      <datalist id="aptList"></datalist>
+      <label>제안제목</label><input id="pTitle" maxlength="100" required>
+      <label>제안내용 <small>무엇을 논의·결정하자는 것인지</small></label><textarea id="pContent" maxlength="3000" required></textarea>
+      <label>제안사유 <small>왜 필요한지</small></label><textarea id="pReason" maxlength="2000" required></textarea>
+      <div class="err" id="pErr"></div>
+      <div class="actions">
+        <button type="button" data-close>취소</button>
+        <button type="submit" class="primary" id="pSubmit">제안 보내기</button>
+      </div>
+    </form>
+    <div class="done" id="pDone" hidden></div>
+  </div>
+</div>
+<div class="modal" id="listModal">
+  <div class="sheet wide">
+    <h2>안건 제안 목록</h2>
+    <p class="lead" id="listLead">불러오는 중…</p>
+    <div class="plist" id="plist"></div>
+    <div class="actions"><button type="button" data-close>닫기</button></div>
+  </div>
+</div>
+<div class="modal" id="cModal">
+  <div class="sheet wide">
+    <div class="chead"><h2 id="cTitle">단지 현황</h2><span class="sub" id="cSub"></span><span id="cTerm"></span></div>
+    <div class="tabs" id="cTabs">
+      <button data-t="info" class="on">현황</button>
+      <button data-t="docs">자료 업로드</button>
+      <button data-t="props">안건</button>
+    </div>
+    <div id="cInfo"></div>
+    <div id="cDocs" hidden>
+      <div class="box">
+        <h3>관리규약 올리기</h3>
+        <p>PDF 또는 사진(10MB 이하). 드라이브에 보관되고, AI가 주차·관리방식 등 규약에 적힌 항목을 뽑아 확인 화면으로 보여 줍니다.</p>
+        <input type="file" id="fBylaw" accept="application/pdf,image/jpeg,image/png,image/webp">
+        <div class="actions"><button type="button" class="primary" id="bBylaw">올리고 AI로 읽기</button></div>
+      </div>
+      <div class="box">
+        <h3>입대의 회장 임명장 올리기</h3>
+        <p>임명장·당선증·선출 공고 사진이나 PDF. AI가 회장 성명과 임기를 읽어 확인 화면으로 보여 줍니다.</p>
+        <input type="file" id="fAppoint" accept="application/pdf,image/jpeg,image/png,image/webp">
+        <div class="actions"><button type="button" class="primary" id="bAppoint">올리고 AI로 읽기</button></div>
+      </div>
+      <div class="box">
+        <h3>회장 임기 직접 입력</h3>
+        <div class="row">
+          <div><label>회장 성명</label><input id="dChair" maxlength="30"></div>
+          <div></div>
+          <div><label>임기 시작</label><input type="month" id="dStart"></div>
+          <div><label>임기 종료</label><input type="month" id="dEnd"></div>
+        </div>
+        <div class="actions"><button type="button" class="primary" id="bTerm">저장</button></div>
+      </div>
+      <div class="busy" id="docMsg"></div>
+    </div>
+    <div id="cProps" hidden>
+      <div class="actions" style="margin-top:0;justify-content:flex-start"><button type="button" class="primary" id="cPropBtn">이 단지 안건 접수</button></div>
+      <div class="plist" id="cPlist"></div>
+    </div>
+    <div class="err" id="cErr"></div>
+    <div class="actions">
+      <button type="button" id="cEdit">수정하기</button>
+      <button type="button" class="primary" id="cSave" hidden>저장</button>
+      <button type="button" data-close>닫기</button>
+    </div>
+  </div>
+</div>
+<div class="modal" id="chatModal">
+  <div class="sheet wide">
+    <h2>단톡방 내용으로 단지 정보 갱신</h2>
+    <p class="lead">카카오톡 대화를 복사해 붙여넣으면 AI가 단지별로 바뀔 정보를 찾아 확인 화면으로 보여 줍니다. 확인한 항목만 저장됩니다.<br>
+      전화번호·동호수는 자동으로 지우고, 회원 이름은 "단지명 회원"으로 바꿔서 AI에 보냅니다. 원문 대화는 저장하지 않습니다.</p>
+    <textarea id="chatText" style="min-height:260px" placeholder="여기에 대화 내용을 붙여넣으세요 (6만 자 이내)"></textarea>
+    <div class="err" id="chatErr"></div>
+    <div class="actions"><button type="button" data-close>취소</button><button type="button" class="primary" id="chatGo">분석하기</button></div>
+  </div>
+</div>
+<div class="modal" id="rvModal">
+  <div class="sheet wide">
+    <h2 id="rvTitle">바뀔 내용 확인</h2>
+    <p class="lead" id="rvLead">저장할 항목에 체크하세요. 값은 고쳐서 저장할 수 있습니다.</p>
+    <div class="rvwrap"><table class="rv"><thead><tr><th><input type="checkbox" id="rvAll" checked></th><th>단지</th><th>항목</th><th>현재 값</th><th>새 값</th><th>근거</th></tr></thead><tbody id="rvBody"></tbody></table></div>
+    <div class="err" id="rvErr"></div>
+    <div class="actions"><button type="button" data-close>취소</button><button type="button" class="primary" id="rvSave">선택 항목 저장</button></div>
+  </div>
+</div>
+<div class="app">
+  <header>
+    <h1 id="org">회원 지도</h1>
+    <div class="stats">
+      <span class="stat">전체 <b id="sAll">-</b></span>
+      <span class="stat">정회원 <b id="sFull">-</b></span>
+      <span class="stat">준회원 <b id="sAssoc">-</b></span>
+      <span class="stat">승인대기 <b id="sPend">-</b></span>
+    </div>
+    <span class="upd" id="upd"></span>
+    <span class="me" id="me"></span>
+    <button type="button" id="propBtn" class="prop-btn">안건 제안</button>
+    <button type="button" id="chatBtn" class="tool-btn">단톡방 내용 반영</button>
+    <button type="button" id="relogin" class="relogin">로그아웃</button>
+    <div class="dl" id="dl">
+      <span class="admin-tag">관리자</span>
+      <select id="dlScope"><option value="all">전체 회원</option><option value="approved">승인 회원만</option></select>
+      <button id="dlBtn" type="button">명부 다운로드</button>
+      <button id="listBtn" type="button">제안 목록</button>
+    </div>
+  </header>
+  <aside>
+    <div class="filters">
+      <input id="q" type="search" placeholder="이름·단지명 검색">
+      <select id="region"><option value="">전체 지역</option></select>
+      <div class="seg" id="grade">
+        <button data-v="" class="on">전체</button>
+        <button data-v="정회원">정회원</button>
+        <button data-v="준회원">준회원</button>
+      </div>
+    </div>
+    <div class="count" id="count"></div>
+    <ul id="list"><li class="msg">불러오는 중…</li></ul>
+  </aside>
+  <div id="map"></div>
+</div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>
+const COLOR = { '정회원': getVar('--full'), '준회원': getVar('--assoc'), '확인필요': '#9aa3ad' };
+const st = { all: [], q: '', region: '', grade: '' };
+let map, layer, markerByKey = {};
+
+function getVar(n){ return getComputedStyle(document.documentElement).getPropertyValue(n).trim(); }
+function esc(s){ return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c])); }
+function tags(m){
+  return (m.status !== '승인' ? '<span class="tag">' + esc(m.status) + '</span>' : '') +
+         (m.suspended ? '<span class="tag warn">권리정지</span>' : '');
+}
+function keyOf(m){ return m.lat != null ? m.lat.toFixed(5) + ',' + m.lng.toFixed(5) : null; }
+
+function initMap(){
+  map = L.map('map', { zoomControl: true }).setView([36.3504, 127.3845], 11);   // 대전 시청 기준
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19, attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
+  layer = L.layerGroup().addTo(map);
+  const lg = L.control({ position: 'bottomright' });
+  lg.onAdd = () => { const d = L.DomUtil.create('div', 'legend');
+    d.innerHTML = '<div><i style="background:'+COLOR['정회원']+'"></i>정회원(입대의 회장)</div>' +
+                  '<div><i style="background:'+COLOR['준회원']+'"></i>준회원</div>' +
+                  '<div><i style="background:#fff;border:2px solid #5d6875;width:7px;height:7px"></i>이사회 승인대기</div>'; return d; };
+  lg.addTo(map);
+}
+
+function filtered(){
+  const q = st.q.trim();
+  return st.all.filter(m =>
+    (!st.region || m.region === st.region) &&
+    (!st.grade || m.grade === st.grade) &&
+    (!q || m.name.includes(q) || m.apt.includes(q)));
+}
+
+function render(){
+  const list = filtered();
+  layer.clearLayers(); markerByKey = {};
+
+  // 같은 단지(좌표)는 하나의 마커로 묶음
+  const groups = {};
+  list.forEach(m => { const k = keyOf(m); if (k) (groups[k] = groups[k] || []).push(m); });
+  Object.entries(groups).forEach(([k, ms]) => {
+    const full = ms.some(m => m.grade === '정회원');
+    const c = full ? COLOR['정회원'] : COLOR['준회원'];
+    const pending = ms.every(m => m.status !== '승인');
+    const mk = L.circleMarker([ms[0].lat, ms[0].lng], {
+      radius: 8 + Math.min(ms.length - 1, 4) * 2, weight: pending ? 3 : 2,
+      color: pending ? c : '#fff', fillColor: pending ? '#fff' : c, fillOpacity: .95
+    }).bindPopup(
+      '<div class="pop"><h3>' + esc(ms[0].apt) + '</h3><div class="addr">' + esc(ms[0].addr) +
+      (ms[0].hh ? ' · ' + Number(ms[0].hh).toLocaleString() + '세대' : '') + '</div>' +
+      ms.map(m => '<div class="p"><b>' + esc(m.name) + '</b><span class="badge" style="background:' + COLOR[m.grade] + '">' +
+                  m.grade + '</span>' + tags(m) + '<br>' + esc(m.role) +
+                  '<br><span style="color:#5d6875;font-size:11.5px">' + esc(m.basis) + '</span></div>').join('') +
+      '<button type="button" class="open-c" data-key="' + esc(ckey(ms[0].apt)) + '">단지 현황 보기</button></div>'
+    ).addTo(layer);
+    markerByKey[k] = mk;
+  });
+
+  const ul = document.getElementById('list');
+  document.getElementById('count').textContent = '표시 ' + list.length + '명' +
+    (list.some(m => m.lat == null) ? ' · 좌표 없음 ' + list.filter(m => m.lat == null).length + '명' : '');
+  ul.innerHTML = list.length ? list.map((m, i) =>
+    '<li data-i="' + i + '"><span class="dot" style="background:' + COLOR[m.grade] + '"></span>' +
+    '<div><div class="nm">' + esc(m.name) + tags(m) + '</div><div class="ap">' + esc(m.apt) +
+    (m.lat == null ? ' <span class="nogeo">· 위치 미확인</span>' : '') + '</div></div>' +
+    '<span class="rg">' + esc(m.region) + '<br><button type="button" class="row-btn open-c" data-key="' + esc(ckey(m.apt)) + '">현황</button></span></li>').join('')
+    : '<li class="msg">조건에 맞는 회원이 없습니다.</li>';
+  ul.querySelectorAll('li[data-i]').forEach(li => li.onclick = (ev) => {
+    if (ev.target.closest('.open-c')) return;
+    const m = list[li.dataset.i], k = keyOf(m);
+    ul.querySelectorAll('li').forEach(x => x.classList.remove('active')); li.classList.add('active');
+    if (k && markerByKey[k]) { map.flyTo([m.lat, m.lng], 15, { duration: .6 }); markerByKey[k].openPopup(); }
+  });
+
+  const pts = Object.values(markerByKey).map(mk => mk.getLatLng());
+  if (pts.length > 1) map.fitBounds(L.latLngBounds(pts).pad(0.15), { maxZoom: 14 });
+  else if (pts.length === 1) map.setView(pts[0], 14);
+}
+
+let AUTH = null;          // {pin, name, p4}
+let ME = null, FIELDS = [], CHAIR_ENDS = {};
+function ckey(apt){ return String(apt || '').replace(/\s+/g, '').toLowerCase(); }
+function toCsv(head, rows){
+  const cell = v => { let s = v == null ? '' : String(v);
+    if (/^[=+\-@]/.test(s) && !/^-?\d/.test(s)) s = "'" + s;        // 엑셀 수식 주입 방지
+    return '"' + s.replace(/"/g, '""') + '"'; };
+  return '\uFEFF' + [head].concat(rows).map(r => r.map(cell).join(',')).join('\r\n');   // BOM: 엑셀 한글 깨짐 방지
+}
+function download(name, text){
+  const blob = new Blob([text], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+}
+// ▼ Apps Script 웹 앱 URL (배포 관리 > 웹 앱 URL). 재배포해도 주소가 같으면 바꿀 필요 없음
+const API_URL = 'https://script.google.com/macros/s/AKfycbzCgJVTk5saU2lu5Mlsfe7rsGvvQEiQx8ewMr2lmt-fz0jhlIKqTRNA3wDZ54QGYYYhQw/exec';
+
+async function api(body){
+  let res;
+  try {
+    res = await fetch(API_URL, {
+    method: 'POST', credentials: 'omit', redirect: 'follow',
+    body: JSON.stringify(body)                       // text/plain → 사전검사 없음
+    });
+  } catch (e) {
+    throw new Error('서버에 연결하지 못했습니다. Apps Script를 최신 코드로 "새 버전" 배포했는지 확인해 주세요.');
+  }
+  if (!res.ok) throw new Error('서버 응답 ' + res.status);
+  const j = await res.json();
+  if (!j.ok) throw new Error(j.error || '알 수 없는 오류');
+  return j.data;
+}
+
+document.getElementById('dlBtn').onclick = async () => {
+  const b = document.getElementById('dlBtn'); b.disabled = true; b.textContent = '준비 중…';
+  try {
+    const r = await api({ action: 'roster', auth: AUTH, scope: document.getElementById('dlScope').value });
+    download(r.filename, toCsv(r.head, r.rows));
+  } catch (e) { alert('다운로드 실패: ' + e.message); }
+  b.disabled = false; b.textContent = '명부 다운로드';
+};
+
+/* ── 안건 제안 ── */
+const $ = id => document.getElementById(id);
+function openModal(id){ $(id).classList.add('on'); }
+function closeModal(el){ el.closest('.modal').classList.remove('on'); }
+document.querySelectorAll('[data-close]').forEach(b => b.onclick = () => closeModal(b));
+document.querySelectorAll('.modal').forEach(m => m.addEventListener('click', e => { if (e.target === m) m.classList.remove('on'); }));
+
+function openPropose(target){
+  $('propForm').reset();
+  $('pName').value = ME ? ME.name : ''; $('pApt').value = ME ? ME.apt : '';
+  $('pTarget').value = target || '';
+  $('propForm').hidden = false; $('pDone').hidden = true; $('pErr').textContent = '';
+  openModal('propModal'); $('pTitle').focus();
+}
+$('propBtn').onclick = () => openPropose('');
+$('propForm').onsubmit = async e => {
+  e.preventDefault();
+  const p = { name: $('pName').value, apt: $('pApt').value, title: $('pTitle').value,
+              content: $('pContent').value, reason: $('pReason').value };
+  if (Object.values(p).some(v => !v.trim())) { $('pErr').textContent = '모든 항목을 입력해 주세요.'; return; }
+  p.kind = $('pKind').value; p.target = $('pTarget').value.trim();
+  $('pSubmit').disabled = true; $('pErr').textContent = '보내는 중…';
+  try {
+    const r = await api({ action: 'propose', auth: AUTH, proposal: p });
+    $('propForm').reset(); $('propForm').hidden = true; $('pDone').hidden = false;
+    $('pDone').innerHTML = '<b>제안이 접수되었습니다.</b><br>접수번호 ' + esc(r.no) + ' · ' + esc(r.at) +
+      '<br>협회에서 검토 후 안내드리겠습니다.<div class="actions"><button type="button" class="primary" data-close2>닫기</button></div>';
+    $('pDone').querySelector('[data-close2]').onclick = () => $('propModal').classList.remove('on');
+  } catch (err) {
+    $('pErr').textContent = String(err.message).indexOf('PIN') >= 0 ? '비밀번호가 바뀌었습니다. 다시 로그인해 주세요.' : '제출 실패: ' + err.message;
+  }
+  $('pSubmit').disabled = false;
+};
+
+$('listBtn').onclick = async () => {
+  openModal('listModal'); $('listLead').textContent = '불러오는 중…'; $('plist').innerHTML = '';
+  try {
+    const list = await api({ action: 'proposals', auth: AUTH });
+    $('listLead').textContent = '총 ' + list.length + '건 · 최신순 (처리상태는 스프레드시트 "안건제안" 탭에서 변경)';
+    $('plist').innerHTML = list.length ? list.map(x =>
+      '<div class="pitem"><div class="top"><span class="t">' + esc(x.title) + '</span>' +
+      '<span class="meta">' + esc(x.kind) + ' · 대상 ' + esc(x.target) + ' · ' + esc(x.no) + ' · ' + esc(x.at) + ' · ' + esc(x.name) + ' (' + esc(x.apt) + ')</span>' +
+      '<span class="st">' + esc(x.status) + '</span></div>' +
+      '<details><summary>내용 보기</summary><b>제안내용</b><p>' + esc(x.content) + '</p>' +
+      '<b>제안사유</b><p>' + esc(x.reason) + '</p>' +
+      (x.memo ? '<b>처리메모</b><p>' + esc(x.memo) + '</p>' : '') + '</details></div>').join('')
+      : '<p class="lead">아직 들어온 제안이 없습니다.</p>';
+  } catch (err) { $('listLead').textContent = '불러오기 실패: ' + err.message; }
+};
+
+/* ── 단지 현황(위키) ── */
+let CUR = null, EDIT = false;
+function termBadge(end){
+  if (!end) return '';
+  const m = String(end).match(/(20\d{2})\D+(\d{1,2})/);
+  if (!m) return '<span class="term">회장 임기 종료 ' + esc(end) + '</span>';
+  const endD = new Date(+m[1], +m[2], 0, 23, 59);           // 그 달 말일
+  const months = Math.round((endD - new Date()) / (30.4 * 864e5));
+  if (months < 0) return '<span class="term bad">회장 임기 만료(' + m[1] + '. ' + (+m[2]) + '.)</span>';
+  if (months <= 3) return '<span class="term warn">회장 임기 만료 임박 · ' + m[1] + '. ' + (+m[2]) + '.</span>';
+  return '<span class="term">회장 임기 ~' + m[1] + '. ' + (+m[2]) + '.</span>';
+}
+function showTab(t){
+  $('cTabs').querySelectorAll('button').forEach(b => b.classList.toggle('on', b.dataset.t === t));
+  $('cInfo').hidden = t !== 'info'; $('cDocs').hidden = t !== 'docs'; $('cProps').hidden = t !== 'props';
+  $('cEdit').hidden = t !== 'info' || EDIT; $('cSave').hidden = t !== 'info' || !EDIT;
+}
+$('cTabs').querySelectorAll('button').forEach(b => b.onclick = () => showTab(b.dataset.t));
+
+function renderInfo(){
+  const c = CUR; let html = '', lastCat = '';
+  c.fields.forEach(f => {
+    if (f.cat !== lastCat) { html += '<div class="cat">' + esc(f.cat) + '</div>'; lastCat = f.cat; }
+    let v;
+    if (f.file) {
+      v = f.value ? (/^https?:/.test(f.value) ? '<a href="' + esc(f.value) + '" target="_blank" rel="noopener">파일 열기</a>' : esc(f.value)) : '<span class="fv empty">없음</span>';
+    } else if (EDIT) {
+      v = '<textarea data-f="' + esc(f.key) + '" placeholder="' + esc(f.hint) + '">' + esc(f.value) + '</textarea>';
+    } else {
+      v = f.value ? esc(f.value) : '<span class="empty">미입력</span>';
+    }
+    const meta = f.by ? '<div class="fm">' + esc(f.by) + ' · ' + esc(f.at) + (f.src && f.src !== '직접 수정' ? ' · ' + esc(f.src) : '') + '</div>'
+               : (f.src ? '<div class="fm">' + esc(f.src) + '</div>' : '');
+    html += '<div class="frow"><div class="fl">' + esc(f.label) + '</div><div><div class="fv' + (f.value ? '' : ' empty') + '">' + v + '</div>' + meta + '</div></div>';
+  });
+  $('cInfo').innerHTML = html;
+}
+function renderProps(){
+  const ps = CUR.proposals;
+  $('cPlist').innerHTML = ps.length ? ps.map(x =>
+    '<div class="pitem"><div class="top"><span class="t">' + esc(x.title) + '</span><span class="meta">' + esc(x.kind) + ' · ' + esc(x.no) + ' · ' + esc(x.at) + '</span><span class="st">' + esc(x.status) + '</span></div></div>').join('')
+    : '<p class="lead">이 단지로 접수된 안건이 없습니다.</p>';
+}
+async function openComplex(key, tab){
+  $('cErr').textContent = ''; EDIT = false;
+  $('cTitle').textContent = '불러오는 중…'; $('cSub').textContent = ''; $('cTerm').innerHTML = ''; $('cInfo').innerHTML = '';
+  openModal('cModal'); showTab(tab || 'info');
+  try {
+    CUR = await api({ action: 'complex', auth: AUTH, key: key });
+    $('cTitle').textContent = CUR.apt;
+    $('cSub').textContent = [CUR.region, CUR.addr].filter(Boolean).join(' · ');
+    const f = k => (CUR.fields.find(x => x.key === k) || {}).value || '';
+    $('cTerm').innerHTML = termBadge(f('chair_end'));
+    $('dChair').value = f('chair_name');
+    const ym = v => { const m = String(v).match(/(20\d{2})\D+(\d{1,2})/); return m ? m[1] + '-' + String(m[2]).padStart(2, '0') : ''; };
+    $('dStart').value = ym(f('chair_start')); $('dEnd').value = ym(f('chair_end'));
+    renderInfo(); renderProps(); showTab(tab || 'info');
+  } catch (err) { $('cErr').textContent = '불러오기 실패: ' + err.message; }
+}
+document.addEventListener('click', e => {
+  const b = e.target.closest('.open-c');
+  if (b) { e.preventDefault(); openComplex(b.dataset.key); }
+});
+$('cEdit').onclick = () => { EDIT = true; renderInfo(); showTab('info'); };
+$('cSave').onclick = async () => {
+  const changes = [];
+  $('cInfo').querySelectorAll('textarea[data-f]').forEach(t => {
+    const f = CUR.fields.find(x => x.key === t.dataset.f);
+    if (f && t.value.trim() !== String(f.value).trim()) changes.push({ key: CUR.key, field: f.key, value: t.value.trim() });
+  });
+  if (!changes.length) { EDIT = false; renderInfo(); showTab('info'); return; }
+  $('cSave').disabled = true; $('cErr').textContent = '저장 중…';
+  try {
+    const r = await api({ action: 'save', auth: AUTH, changes: changes, source: '직접 수정' });
+    $('cErr').textContent = r.saved + '개 항목을 저장했습니다.';
+    await openComplex(CUR.key, 'info');
+  } catch (err) { $('cErr').textContent = '저장 실패: ' + err.message; }
+  $('cSave').disabled = false;
+};
+$('cPropBtn').onclick = () => { const t = CUR ? CUR.apt : ''; $('cModal').classList.remove('on'); openPropose(t); };
+
+/* 회장 임기 직접 입력 */
+$('bTerm').onclick = async () => {
+  const changes = [['chair_name', $('dChair').value.trim()], ['chair_start', $('dStart').value], ['chair_end', $('dEnd').value]]
+    .filter(x => x[1]).map(x => ({ key: CUR.key, field: x[0], value: x[1] }));
+  if (!changes.length) { $('docMsg').textContent = '입력한 값이 없습니다.'; return; }
+  $('docMsg').textContent = '저장 중…';
+  try { const r = await api({ action: 'save', auth: AUTH, changes: changes, source: '직접 수정' });
+        $('docMsg').textContent = r.saved + '개 항목을 저장했습니다.'; await openComplex(CUR.key, 'docs'); }
+  catch (err) { $('docMsg').textContent = '저장 실패: ' + err.message; }
+};
+
+/* 파일 업로드 → AI 읽기 */
+function readB64(file){
+  return new Promise((ok, no) => { const r = new FileReader();
+    r.onload = () => ok(String(r.result).split(',')[1]); r.onerror = () => no(new Error('파일을 읽지 못했습니다.')); r.readAsDataURL(file); });
+}
+async function uploadDoc(kind, input, btn){
+  const f = input.files[0];
+  if (!f) { $('docMsg').textContent = '파일을 먼저 고르세요.'; return; }
+  if (f.size > 10 * 1024 * 1024) { $('docMsg').textContent = '10MB 이하 파일만 올릴 수 있습니다.'; return; }
+  btn.disabled = true; $('docMsg').textContent = '올리고 AI가 읽는 중… (최대 1분)';
+  try {
+    const b64 = await readB64(f);
+    const r = await api({ action: 'aiDoc', auth: AUTH, key: CUR.key, kind: kind, file: { name: f.name, mime: f.type, b64: b64 } });
+    $('docMsg').textContent = '파일을 보관했습니다. ' + (r.updates.length ? '확인할 항목 ' + r.updates.length + '개' : 'AI가 새로 채울 항목을 찾지 못했습니다.');
+    input.value = '';
+    if (r.updates.length) openReview(r.updates, r.source, (kind === 'bylaw' ? '관리규약' : '임명장') + '에서 읽은 내용 확인');
+  } catch (err) { $('docMsg').textContent = '실패: ' + err.message; }
+  btn.disabled = false;
+}
+$('bBylaw').onclick = () => uploadDoc('bylaw', $('fBylaw'), $('bBylaw'));
+$('bAppoint').onclick = () => uploadDoc('appoint', $('fAppoint'), $('bAppoint'));
+
+/* 단톡방 */
+$('chatBtn').onclick = () => { $('chatErr').textContent = ''; openModal('chatModal'); $('chatText').focus(); };
+$('chatGo').onclick = async () => {
+  const t = $('chatText').value.trim();
+  if (t.length < 10) { $('chatErr').textContent = '대화 내용을 붙여넣어 주세요.'; return; }
+  $('chatGo').disabled = true; $('chatErr').textContent = 'AI가 분석하는 중… (최대 1분)';
+  try {
+    const r = await api({ action: 'aiChat', auth: AUTH, text: t });
+    if (!r.updates.length) { $('chatErr').textContent = '단지 정보로 반영할 내용을 찾지 못했습니다.'; }
+    else { $('chatErr').textContent = ''; $('chatModal').classList.remove('on'); openReview(r.updates, '단톡방 추출(AI)', '단톡방에서 찾은 내용 확인'); $('chatText').value = ''; }
+  } catch (err) { $('chatErr').textContent = '실패: ' + err.message; }
+  $('chatGo').disabled = false;
+};
+
+/* 확인 화면 */
+let RV = { items: [], source: '' };
+function openReview(items, source, title){
+  RV = { items: items, source: source };
+  $('rvTitle').textContent = title; $('rvErr').textContent = ''; $('rvAll').checked = true;
+  $('rvBody').innerHTML = items.map((u, i) =>
+    '<tr><td><input type="checkbox" data-i="' + i + '" checked></td><td>' + esc(u.apt) + '</td><td>' + esc(u.label) +
+    '</td><td class="cur">' + (u.current ? esc(u.current) : '—') + '</td><td><input type="text" data-v="' + i + '" value="' + esc(u.value) +
+    '"></td><td class="ev">' + esc(u.evidence) + '</td></tr>').join('');
+  openModal('rvModal');
+}
+$('rvAll').onchange = e => $('rvBody').querySelectorAll('input[type=checkbox]').forEach(c => c.checked = e.target.checked);
+$('rvSave').onclick = async () => {
+  const changes = [];
+  $('rvBody').querySelectorAll('input[type=checkbox]').forEach(c => {
+    if (!c.checked) return;
+    const u = RV.items[+c.dataset.i], v = $('rvBody').querySelector('input[data-v="' + c.dataset.i + '"]').value.trim();
+    if (v) changes.push({ key: u.key, field: u.field, value: v });
+  });
+  if (!changes.length) { $('rvErr').textContent = '저장할 항목을 고르세요.'; return; }
+  $('rvSave').disabled = true; $('rvErr').textContent = '저장 중…';
+  try {
+    const r = await api({ action: 'save', auth: AUTH, changes: changes, source: RV.source });
+    $('rvErr').textContent = ''; $('rvModal').classList.remove('on');
+    alert(r.saved + '개 항목을 저장했습니다.');
+    if (CUR && $('cModal').classList.contains('on')) openComplex(CUR.key, 'info');
+  } catch (err) { $('rvErr').textContent = '저장 실패: ' + err.message; }
+  $('rvSave').disabled = false;
+};
+
+function load(data){
+  ME = data.me || null; FIELDS = data.fields || []; CHAIR_ENDS = data.chairEnds || {};
+  $('me').innerHTML = ME ? '<b>' + esc(ME.name) + '</b>' + (ME.apt ? ' · ' + esc(ME.apt) : '') : '';
+  document.getElementById('dl').classList.toggle('on', !!data.isAdmin);
+  document.getElementById('org').textContent = data.org + ' 회원 지도';
+  document.getElementById('upd').textContent = '갱신 ' + data.updated;
+  st.all = data.members;
+  document.getElementById('sAll').textContent = st.all.length;
+  document.getElementById('sFull').textContent = st.all.filter(m => m.grade === '정회원').length;
+  document.getElementById('sAssoc').textContent = st.all.filter(m => m.grade === '준회원').length;
+  document.getElementById('sPend').textContent = st.all.filter(m => m.status === '승인대기').length;
+  const regions = [...new Set(st.all.map(m => m.region))];
+  document.getElementById('region').innerHTML = '<option value="">전체 지역</option>' +
+    regions.map(r => '<option>' + esc(r) + '</option>').join('');
+  $('aptList').innerHTML = [...new Set(st.all.map(m => m.apt))].map(a => '<option value="' + esc(a) + '">').join('');
+  render();
+}
+
+document.getElementById('q').oninput = e => { st.q = e.target.value; render(); };
+document.getElementById('region').onchange = e => { st.region = e.target.value; render(); };
+document.querySelectorAll('#grade button').forEach(b => b.onclick = () => {
+  document.querySelectorAll('#grade button').forEach(x => x.classList.remove('on'));
+  b.classList.add('on'); st.grade = b.dataset.v; render();
+});
+
+initMap();
+const AUTH_KEY = 'member-map-auth';
+function savedAuth(){ try { return JSON.parse(localStorage.getItem(AUTH_KEY) || 'null'); } catch(e){ return null; } }
+function storeAuth(v){ try { v ? localStorage.setItem(AUTH_KEY, JSON.stringify(v)) : localStorage.removeItem(AUTH_KEY); } catch(e){} }
+try { localStorage.removeItem('member-map-pin'); } catch(e){}
+
+function showGate(msg){
+  document.getElementById('gate').classList.add('on');
+  document.getElementById('gateErr').textContent = msg || '';
+  document.getElementById('pin').focus();
+}
+function fetchMembers(a){
+  if (!a) { showGate(''); return; }
+  api({ action: 'login', auth: a })
+    .then(d => { AUTH = a; storeAuth(a); document.getElementById('gate').classList.remove('on'); load(d); })
+    .catch(err => {
+      const m = String(err.message);
+      if (m === 'PIN' || m === 'ID') {
+        storeAuth(null);
+        showGate(m === 'PIN' ? '비밀번호가 맞지 않습니다.' : '회원명부에서 성명·연락처 뒷 4자리를 찾지 못했습니다.');
+      } else {
+        document.getElementById('gate').classList.remove('on');
+        document.getElementById('list').innerHTML = '<li class="msg">불러오기 실패: ' + esc(m) + '</li>';
+      }
+    });
+}
+document.getElementById('relogin').onclick = () => {
+  storeAuth(null); AUTH = null;
+  ['pin', 'uName', 'uP4'].forEach(id => $(id).value = '');
+  showGate('');
+};
+document.getElementById('gateForm').onsubmit = e => {
+  e.preventDefault();
+  const a = { pin: $('pin').value.trim(), name: $('uName').value.trim(), p4: $('uP4').value.replace(/\D/g, '') };
+  if (!a.name || a.p4.length !== 4) { $('gateErr').textContent = '성명과 연락처 뒷 4자리를 입력해 주세요.'; return; }
+  $('gateErr').textContent = '확인 중…';
+  fetchMembers(a);
+};
+fetchMembers(savedAuth());
+</script>
+</body>
+</html>
