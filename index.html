@@ -224,7 +224,10 @@
     <h2>단톡방 내용으로 단지 정보 갱신</h2>
     <p class="lead">카카오톡 대화를 복사해 붙여넣으면 AI가 단지별로 바뀔 정보를 찾아 확인 화면으로 보여 줍니다. 확인한 항목만 저장됩니다.<br>
       전화번호·동호수는 자동으로 지우고, 회원 이름은 "단지명 회원"으로 바꿔서 AI에 보냅니다. 원문 대화는 저장하지 않습니다.</p>
-    <textarea id="chatText" style="min-height:260px" placeholder="여기에 대화 내용을 붙여넣으세요 (6만 자 이내)"></textarea>
+    <label>카카오톡 '대화 내보내기' 파일(.txt)이 있으면 선택하세요 <small>또는 아래에 직접 붙여넣기</small></label>
+    <input type="file" id="chatFile" accept=".txt,text/plain">
+    <textarea id="chatText" style="min-height:220px;margin-top:8px" placeholder="여기에 대화 내용을 붙여넣으세요. 길면 자동으로 나눠서 분석합니다."></textarea>
+    <div class="busy" id="chatInfo"></div>
     <div class="err" id="chatErr"></div>
     <div class="actions"><button type="button" data-close>취소</button><button type="button" class="primary" id="chatGo">분석하기</button></div>
   </div>
@@ -567,15 +570,48 @@ $('bAppoint').onclick = () => uploadDoc('appoint', $('fAppoint'), $('bAppoint'))
 
 /* 단톡방 */
 $('chatBtn').onclick = () => { $('chatErr').textContent = ''; openModal('chatModal'); $('chatText').focus(); };
+/* 카톡 내보내기 정리: 입장·퇴장·사진 등 시스템 줄 제거, 날짜 짧게 */
+function cleanChat(t){
+  const drop = /님이 들어왔습니다|님이 나갔습니다|님을 내보냈습니다|부방장|방장이|사칭에 유의|운영정책을 위반|^저장한 날짜|^Talk_|^20\d\d년 \d{1,2}월 \d{1,2}일 .요일\s*$|:\s*(사진( \d+장)?|동영상|이모티콘|파일: .*|삭제된 메시지입니다\.?)\s*$/;
+  return t.split(/\r?\n/).filter(l => l.trim() && !drop.test(l))
+    .map(l => l.replace(/^20(\d\d)\. (\d{1,2})\. (\d{1,2})\. \d{1,2}:\d{2}, /, '$1.$2.$3 ').replace(/https?:\/\/\S+/g, '[링크]'))
+    .join('\n');
+}
+function chunkText(t, size){
+  const out = []; let cur = '';
+  t.split('\n').forEach(l => {
+    if (cur.length + l.length + 1 > size && cur) { out.push(cur); cur = ''; }
+    cur += (cur ? '\n' : '') + (l.length > size ? l.slice(0, size) : l);
+  });
+  if (cur) out.push(cur);
+  return out;
+}
+$('chatFile').onchange = async e => {
+  const f = e.target.files[0]; if (!f) return;
+  $('chatText').value = await f.text();
+  $('chatInfo').textContent = f.name + ' 불러옴 · ' + $('chatText').value.length.toLocaleString() + '자';
+};
 $('chatGo').onclick = async () => {
-  const t = $('chatText').value.trim();
-  if (t.length < 10) { $('chatErr').textContent = '대화 내용을 붙여넣어 주세요.'; return; }
-  $('chatGo').disabled = true; $('chatErr').textContent = 'AI가 분석하는 중… (최대 1분)';
+  const raw = $('chatText').value.trim();
+  if (raw.length < 10) { $('chatErr').textContent = '대화 내용을 붙여넣어 주세요.'; return; }
+  const parts = chunkText(cleanChat(raw), 45000);
+  if (parts.length > 15) { $('chatErr').textContent = '대화가 너무 깁니다. 최근 몇 달 분량만 넣어 주세요.'; return; }
+  $('chatGo').disabled = true; $('chatErr').textContent = '';
+  const merged = {};                                // 뒤(최근) 조각의 값이 앞 조각 값을 덮어씀
   try {
-    const r = await api({ action: 'aiChat', auth: AUTH, text: t });
-    if (!r.updates.length) { $('chatErr').textContent = '단지 정보로 반영할 내용을 찾지 못했습니다.'; }
-    else { $('chatErr').textContent = ''; $('chatModal').classList.remove('on'); openReview(r.updates, '단톡방 추출(AI)', '단톡방에서 찾은 내용 확인'); $('chatText').value = ''; }
-  } catch (err) { $('chatErr').textContent = '실패: ' + err.message; }
+    for (let i = 0; i < parts.length; i++) {
+      $('chatInfo').textContent = 'AI가 분석하는 중… ' + (i + 1) + ' / ' + parts.length + ' (조각당 최대 1분)';
+      const r = await api({ action: 'aiChat', auth: AUTH, text: parts[i] });
+      r.updates.forEach(u => { merged[u.key + '|' + u.field] = u; });
+    }
+    const ups = Object.values(merged);
+    $('chatInfo').textContent = '';
+    if (!ups.length) { $('chatErr').textContent = '등록된 회원 단지의 정보로 반영할 내용을 찾지 못했습니다.'; }
+    else { $('chatModal').classList.remove('on'); openReview(ups, '단톡방 추출(AI)', '단톡방에서 찾은 내용 확인 (' + ups.length + '건)'); $('chatText').value = ''; $('chatFile').value = ''; }
+  } catch (err) {
+    $('chatErr').textContent = '실패: ' + err.message +
+      (Object.keys(merged).length ? ' (앞부분 분석 결과 ' + Object.keys(merged).length + '건은 저장되지 않았습니다. 다시 시도해 주세요.)' : '');
+  }
   $('chatGo').disabled = false;
 };
 
